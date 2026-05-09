@@ -1,682 +1,833 @@
+
 <!DOCTYPE html>
+
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>mol·vis</title>
+<title>mol.ex</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,300;0,400;0,500;1,300&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
-<script src="https://unpkg.com/smiles-drawer@1.0.10/dist/smiles-drawer.min.js"></script>
+
+<!-- SmilesDrawer for skeletal formula rendering -->
 
 <style>
-  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-  :root {
-    --bg: #f7f6f2;
-    --ink: #111;
-    --soft: #aaa9a4;
-    --line: #e0dfd9;
-    --accent: #c84b2f;
-  }
+:root {
+--bg: #f7f6f2;
+--ink: #111;
+--soft: #aaa9a4;
+--line: #e0dfd9;
+--accent: #c84b2f;
+--canvas-bg: #f7f6f2;
+}
 
-  html { scroll-behavior: smooth; }
+html { scroll-behavior: smooth; }
 
-  body {
-    background: var(--bg);
-    color: var(--ink);
-    font-family: 'DM Mono', monospace;
-    font-size: 13px;
-    min-height: 100vh;
-    overflow-x: hidden;
-  }
+body {
+background: var(--bg);
+color: var(--ink);
+font-family: 'DM Mono', monospace;
+font-size: 13px;
+min-height: 100vh;
+overflow-x: hidden;
+}
 
-  header {
-    display: flex;
-    align-items: baseline;
-    gap: 6px;
-    padding: 32px 40px 0;
-    user-select: none;
-  }
-  .logo {
-    font-family: 'Instrument Serif', serif;
-    font-style: italic;
-    font-size: 22px;
-    letter-spacing: -0.5px;
-  }
-  .logo-dot { color: var(--accent); }
-  .logo-sub {
-    font-size: 10px;
-    color: var(--soft);
-    letter-spacing: 0.08em;
-    font-weight: 300;
-  }
+/* ── HEADER ─────────────────────────────────────── */
+header {
+display: flex;
+align-items: baseline;
+gap: 6px;
+padding: 32px 40px 0;
+user-select: none;
+}
 
-  /* ── SEARCH ── */
-  .search-section {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    padding: 80px 24px 0;
-    transition: padding 0.5s ease;
-  }
-  .search-section.has-result { padding-top: 32px; }
+.logo {
+font-family: 'Instrument Serif', serif;
+font-style: italic;
+font-size: 22px;
+letter-spacing: -0.5px;
+color: var(--ink);
+}
 
-  .search-wrap {
-    width: 100%;
-    max-width: 560px;
-    position: relative;
-  }
+.logo-dot { color: var(--accent); }
+.logo-sub {
+font-family: 'DM Mono', monospace;
+font-size: 10px;
+color: var(--soft);
+letter-spacing: 0.08em;
+font-weight: 300;
+}
 
-  .search-input {
-    width: 100%;
-    background: transparent;
-    border: none;
-    border-bottom: 1.5px solid var(--ink);
-    padding: 10px 36px 10px 0;
-    font-family: 'DM Mono', monospace;
-    font-size: 20px;
-    font-weight: 300;
-    color: var(--ink);
-    outline: none;
-    caret-color: var(--accent);
-    letter-spacing: -0.3px;
-    transition: border-color 0.2s;
-  }
-  .search-input::placeholder { color: var(--soft); }
-  .search-input:focus { border-color: var(--accent); }
+/* ── SEARCH ──────────────────────────────────────── */
+.search-section {
+display: flex;
+flex-direction: column;
+align-items: center;
+padding: 80px 24px 0;
+transition: padding 0.5s ease;
+}
 
-  .search-icon {
-    position: absolute;
-    right: 0; top: 50%;
-    transform: translateY(-50%);
-    color: var(--soft);
-    font-size: 16px;
-    pointer-events: none;
-  }
+.search-section.has-result {
+padding-top: 32px;
+}
 
-  /* ── SUGGESTIONS ── */
-  .suggestions {
-    position: absolute;
-    top: calc(100% + 8px);
-    left: 0; right: 0;
-    background: #fff;
-    border: 1px solid var(--line);
-    border-radius: 2px;
-    z-index: 100;
-    overflow: hidden;
-    box-shadow: 0 8px 32px rgba(0,0,0,0.06);
-    display: none;
-  }
-  .suggestions.visible { display: block; }
+.search-wrap {
+width: 100%;
+max-width: 560px;
+position: relative;
+}
 
-  .suggestion-item {
-    padding: 10px 14px;
-    cursor: pointer;
-    border-bottom: 1px solid var(--line);
-    transition: background 0.1s;
-    font-size: 13px;
-  }
-  .suggestion-item:last-child { border-bottom: none; }
-  .suggestion-item:hover, .suggestion-item.active { background: var(--bg); }
+.search-input {
+width: 100%;
+background: transparent;
+border: none;
+border-bottom: 1.5px solid var(--ink);
+padding: 10px 36px 10px 0;
+font-family: 'DM Mono', monospace;
+font-size: 20px;
+font-weight: 300;
+color: var(--ink);
+outline: none;
+caret-color: var(--accent);
+letter-spacing: -0.3px;
+transition: border-color 0.2s;
+}
 
-  /* ── LOADER ── */
-  .loader {
-    display: none;
-    margin: 60px auto 0;
-    width: 28px; height: 28px;
-    border: 1.5px solid var(--line);
-    border-top-color: var(--ink);
-    border-radius: 50%;
-    animation: spin 0.7s linear infinite;
-  }
-  @keyframes spin { to { transform: rotate(360deg); } }
+.search-input::placeholder { color: var(--soft); }
+.search-input:focus { border-color: var(--accent); }
 
-  /* ── CARD ── */
-  .mol-card {
-    display: none;
-    max-width: 680px;
-    margin: 48px auto 80px;
-    padding: 0 24px;
-    animation: fadeUp 0.4s ease forwards;
-  }
-  @keyframes fadeUp {
-    from { opacity: 0; transform: translateY(16px); }
-    to   { opacity: 1; transform: translateY(0); }
-  }
+.search-icon {
+position: absolute;
+right: 0;
+top: 50%;
+transform: translateY(-50%);
+color: var(--soft);
+font-size: 16px;
+pointer-events: none;
+}
 
-  .mol-canvas-wrap {
-    width: 100%;
-    aspect-ratio: 4/3;
-    max-height: 420px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: var(--bg);
-    border: 1px solid var(--line);
-    border-radius: 2px;
-    overflow: hidden;
-  }
-  .mol-canvas-wrap canvas { display: block; max-width: 100%; max-height: 100%; }
+/* ── AUTOCOMPLETE ────────────────────────────────── */
+.suggestions {
+position: absolute;
+top: calc(100% + 8px);
+left: 0;
+right: 0;
+background: #fff;
+border: 1px solid var(--line);
+border-radius: 2px;
+z-index: 100;
+overflow: hidden;
+box-shadow: 0 8px 32px rgba(0,0,0,0.06);
+display: none;
+}
 
-  .no-structure {
-    color: var(--soft);
-    font-size: 11px;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-  }
+.suggestions.visible { display: block; }
 
-  .mol-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    margin-top: 28px;
-    gap: 16px;
-  }
-  .mol-name {
-    font-family: 'Instrument Serif', serif;
-    font-style: italic;
-    font-size: 30px;
-    line-height: 1.1;
-    letter-spacing: -0.5px;
-    flex: 1;
-  }
-  .mol-formula {
-    font-size: 13px;
-    color: var(--soft);
-    white-space: nowrap;
-    padding-top: 6px;
-    font-weight: 300;
-  }
-  .mol-iupac {
-    margin-top: 6px;
-    font-size: 11px;
-    color: var(--soft);
-    font-style: italic;
-    line-height: 1.5;
-  }
+.suggestion-item {
+display: flex;
+align-items: baseline;
+gap: 10px;
+padding: 10px 14px;
+cursor: pointer;
+border-bottom: 1px solid var(--line);
+transition: background 0.1s;
+}
 
-  .divider {
-    width: 100%; height: 1px;
-    background: var(--line);
-    margin: 28px 0;
-  }
+.suggestion-item:last-child { border-bottom: none; }
+.suggestion-item:hover { background: var(--bg); }
 
-  .props-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-    gap: 1px;
-    background: var(--line);
-    border: 1px solid var(--line);
-    border-radius: 2px;
-    overflow: hidden;
-  }
-  .prop-cell {
-    background: var(--bg);
-    padding: 16px 18px;
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-  }
-  .prop-label {
-    font-size: 9px;
-    text-transform: uppercase;
-    letter-spacing: 0.14em;
-    color: var(--soft);
-    font-weight: 500;
-  }
-  .prop-value {
-    font-size: 15px;
-    font-weight: 400;
-    color: var(--ink);
-    letter-spacing: -0.2px;
-  }
-  .prop-value.accent { color: var(--accent); }
-  .prop-unit { font-size: 10px; color: var(--soft); font-weight: 300; }
+.sug-name {
+font-size: 13px;
+font-weight: 400;
+color: var(--ink);
+}
 
-  .mol-footer {
-    margin-top: 20px;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-  }
-  .cid-link {
-    font-size: 10px;
-    color: var(--soft);
-    text-decoration: none;
-    letter-spacing: 0.06em;
-    transition: color 0.15s;
-  }
-  .cid-link:hover { color: var(--ink); }
-  .smiles-text {
-    font-size: 9px;
-    color: var(--soft);
-    font-style: italic;
-    max-width: 360px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
+.sug-formula {
+font-size: 11px;
+color: var(--soft);
+font-style: italic;
+}
 
-  /* ── EMPTY STATE ── */
-  .empty-state {
-    text-align: center;
-    padding: 60px 0;
-    color: var(--soft);
-    font-size: 11px;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-  }
-  .empty-examples {
-    margin-top: 20px;
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-    justify-content: center;
-  }
-  .example-pill {
-    font-size: 11px;
-    letter-spacing: 0.04em;
-    padding: 5px 12px;
-    border: 1px solid var(--line);
-    border-radius: 100px;
-    cursor: pointer;
-    color: var(--ink);
-    transition: all 0.15s;
-    font-style: italic;
-    font-family: 'Instrument Serif', serif;
-  }
-  .example-pill:hover { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+/* ── LOADING ─────────────────────────────────────── */
+.loader {
+display: none;
+margin: 60px auto 0;
+width: 28px;
+height: 28px;
+border: 1.5px solid var(--line);
+border-top-color: var(--ink);
+border-radius: 50%;
+animation: spin 0.7s linear infinite;
+}
 
-  .error-msg {
-    display: none;
-    text-align: center;
-    padding: 40px;
-    color: var(--accent);
-    font-size: 11px;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-  }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── MOLECULE CARD ────────────────────────────────── */
+.mol-card {
+display: none;
+max-width: 680px;
+margin: 48px auto 80px;
+padding: 0 24px;
+animation: fadeUp 0.4s ease forwards;
+}
+
+@keyframes fadeUp {
+from { opacity: 0; transform: translateY(16px); }
+to { opacity: 1; transform: translateY(0); }
+}
+
+/* Canvas container */
+.mol-canvas-wrap {
+width: 100%;
+aspect-ratio: 4/3;
+max-height: 420px;
+display: flex;
+align-items: center;
+justify-content: center;
+background: var(--bg);
+border: 1px solid var(--line);
+border-radius: 2px;
+overflow: hidden;
+}
+#svgContainer {
+width: 100%;
+height: 100%;
+display: flex;
+align-items: center;
+justify-content: center;
+}
+#svgContainer svg {
+width: 100% !important;
+height: 100% !important;
+max-width: 100%;
+max-height: 100%;
+}
+
+.no-structure {
+color: var(--soft);
+font-size: 11px;
+letter-spacing: 0.1em;
+text-transform: uppercase;
+}
+
+/* Name + formula strip */
+.mol-header {
+display: flex;
+justify-content: space-between;
+align-items: flex-start;
+margin-top: 28px;
+gap: 16px;
+}
+
+.mol-name {
+font-family: 'Instrument Serif', serif;
+font-style: italic;
+font-size: 30px;
+line-height: 1.1;
+letter-spacing: -0.5px;
+flex: 1;
+}
+
+.mol-formula {
+font-family: 'DM Mono', monospace;
+font-size: 13px;
+color: var(--soft);
+white-space: nowrap;
+padding-top: 6px;
+font-weight: 300;
+}
+
+/* IUPAC */
+.mol-iupac {
+margin-top: 6px;
+font-size: 11px;
+color: var(--soft);
+font-style: italic;
+line-height: 1.5;
+}
+
+/* Divider */
+.divider {
+width: 100%;
+height: 1px;
+background: var(--line);
+margin: 28px 0;
+}
+
+/* Properties grid */
+.props-grid {
+display: grid;
+grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+gap: 1px;
+background: var(--line);
+border: 1px solid var(--line);
+border-radius: 2px;
+overflow: hidden;
+}
+
+.prop-cell {
+background: var(--bg);
+padding: 16px 18px;
+display: flex;
+flex-direction: column;
+gap: 4px;
+}
+
+.prop-label {
+font-size: 9px;
+text-transform: uppercase;
+letter-spacing: 0.14em;
+color: var(--soft);
+font-weight: 500;
+}
+
+.prop-value {
+font-size: 15px;
+font-weight: 400;
+color: var(--ink);
+letter-spacing: -0.2px;
+}
+
+.prop-value.accent { color: var(--accent); }
+
+.prop-unit {
+font-size: 10px;
+color: var(--soft);
+font-weight: 300;
+}
+
+/* CID badge */
+.mol-footer {
+margin-top: 20px;
+display: flex;
+justify-content: space-between;
+align-items: center;
+}
+
+.cid-link {
+font-size: 10px;
+color: var(--soft);
+text-decoration: none;
+letter-spacing: 0.06em;
+transition: color 0.15s;
+}
+
+.cid-link:hover { color: var(--ink); }
+
+.smiles-text {
+font-size: 9px;
+color: var(--soft);
+font-style: italic;
+max-width: 360px;
+overflow: hidden;
+text-overflow: ellipsis;
+white-space: nowrap;
+}
+
+/* ── EMPTY STATE ──────────────────────────────────── */
+.empty-state {
+text-align: center;
+padding: 60px 0;
+color: var(--soft);
+font-size: 11px;
+letter-spacing: 0.1em;
+text-transform: uppercase;
+}
+
+.empty-examples {
+margin-top: 20px;
+display: flex;
+flex-wrap: wrap;
+gap: 8px;
+justify-content: center;
+}
+
+.example-pill {
+font-size: 11px;
+letter-spacing: 0.04em;
+padding: 5px 12px;
+border: 1px solid var(--line);
+border-radius: 100px;
+cursor: pointer;
+color: var(--ink);
+transition: all 0.15s;
+font-style: italic;
+font-family: 'Instrument Serif', serif;
+}
+
+.example-pill:hover {
+background: var(--ink);
+color: var(--bg);
+border-color: var(--ink);
+}
+
+/* ── ERROR ───────────────────────────────────────── */
+.error-msg {
+display: none;
+text-align: center;
+padding: 40px;
+color: var(--accent);
+font-size: 11px;
+letter-spacing: 0.08em;
+text-transform: uppercase;
+}
 </style>
+
 </head>
 <body>
 
 <header>
-  <span class="logo">mol<span class="logo-dot">·</span>vis</span>
-  <span class="logo-sub">molecular explorer</span>
+<span class="logo">mol<span class="logo-dot">.</span>ex</span>
+<span class="logo-sub">molecular explorer</span>
 </header>
 
 <section class="search-section" id="searchSection">
-  <div class="search-wrap">
-    <input
-      type="text"
-      class="search-input"
-      id="searchInput"
-      placeholder="aspirine, ethanol, C6H12O6…"
-      autocomplete="off"
-      spellcheck="false"
-    />
-    <span class="search-icon">↵</span>
-    <div class="suggestions" id="suggestions"></div>
-  </div>
+<div class="search-wrap">
+<input
+type="text"
+class="search-input"
+id="searchInput"
+placeholder="aspirine, ethanol, C6H12O6…"
+autocomplete="off"
+spellcheck="false"
+/>
+<span class="search-icon">↵</span>
+<div class="suggestions" id="suggestions"></div>
+</div>
 
-  <div class="loader" id="loader"></div>
-  <div class="error-msg" id="errorMsg">Molécule introuvable</div>
+<div class="loader" id="loader"></div>
+<div class="error-msg" id="errorMsg">Molécule introuvable</div>
 
-  <div class="empty-state" id="emptyState">
-    <div>chercher une molécule</div>
-    <div class="empty-examples">
-      <span class="example-pill" onclick="quickSearch('aspirin','aspirine')">aspirine</span>
-      <span class="example-pill" onclick="quickSearch('caffeine','caféine')">caféine</span>
-      <span class="example-pill" onclick="quickSearch('glucose','glucose')">glucose</span>
-      <span class="example-pill" onclick="quickSearch('dopamine','dopamine')">dopamine</span>
-      <span class="example-pill" onclick="quickSearch('benzene','benzène')">benzène</span>
-      <span class="example-pill" onclick="quickSearch('cholesterol','cholestérol')">cholestérol</span>
-      <span class="example-pill" onclick="quickSearch('ethanol','éthanol')">éthanol</span>
-      <span class="example-pill" onclick="quickSearch('acetone','acétone')">acétone</span>
-    </div>
-  </div>
+<!-- Empty state -->
+
+<div class="empty-state" id="emptyState">
+<div>chercher une molécule</div>
+<div class="empty-examples">
+<span class="example-pill" onclick="quickSearch('aspirin', 'aspirine')">aspirine</span>
+<span class="example-pill" onclick="quickSearch('caffeine', 'caféine')">caféine</span>
+<span class="example-pill" onclick="quickSearch('glucose', 'glucose')">glucose</span>
+<span class="example-pill" onclick="quickSearch('dopamine', 'dopamine')">dopamine</span>
+<span class="example-pill" onclick="quickSearch('benzene', 'benzène')">benzène</span>
+<span class="example-pill" onclick="quickSearch('cholesterol', 'cholestérol')">cholestérol</span>
+<span class="example-pill" onclick="quickSearch('ethanol', 'éthanol')">éthanol</span>
+<span class="example-pill" onclick="quickSearch('acetone', 'acétone')">acétone</span>
+</div>
+</div>
 </section>
 
+<!-- Molecule result -->
+
 <div class="mol-card" id="molCard">
-  <div class="mol-canvas-wrap" id="canvasWrap">
-    <canvas id="molCanvas"></canvas>
-    <div class="no-structure" id="noStructure" style="display:none">structure non disponible</div>
-  </div>
+<div class="mol-canvas-wrap" id="canvasWrap">
+<img id="molImg" src="" alt="" style="display:none; max-width:100%; max-height:100%; object-fit:contain;" />
+<div class="no-structure" id="noStructure" style="display:none">structure non disponible</div>
+</div>
 
-  <div class="mol-header">
-    <div class="mol-name" id="molName">—</div>
-    <div class="mol-formula" id="molFormula">—</div>
-  </div>
-  <div class="mol-iupac" id="molIupac"></div>
+<div class="mol-header">
+<div class="mol-name" id="molName">—</div>
+<div class="mol-formula" id="molFormula">—</div>
+</div>
+<div class="mol-iupac" id="molIupac"></div>
 
-  <div class="divider"></div>
-  <div class="props-grid" id="propsGrid"></div>
+<div class="divider"></div>
 
-  <div class="mol-footer">
-    <span class="smiles-text" id="smilesText"></span>
-    <a class="cid-link" id="pubchemLink" href="#" target="_blank">→ PubChem</a>
-  </div>
+<div class="props-grid" id="propsGrid"></div>
+
+<div class="mol-footer">
+<span class="smiles-text" id="smilesText"></span>
+<a class="cid-link" id="pubchemLink" href="#" target="_blank">→ PubChem</a>
+</div>
 </div>
 
 <script>
-// ── SMILESDRAWER CONFIG (v1 API) ──────────────────────
-const SD_OPTIONS = {
-  width: 700, height: 520,
-  bondThickness: 2.2,
-  bondLength: 52,
-  shortBondLength: 0.85,
-  bondSpacing: 0.18,
-  atomVisualization: 'default',
-  isomeric: true,
-  debug: false,
-  terminalCarbons: false,
-  explicitHydrogens: false,
-  overlapSensitivity: 0.42,
-  overlapResolutionIterations: 5,
-  compactDrawing: false,
-  fontSizeLarge: 14,
-  fontSizeSmall: 10,
-  padding: 28,
-  themes: {
-    custom: {
-      C: '#111111', O: '#c84b2f', N: '#1a6bba',
-      S: '#b8860b', P: '#8a2be2',
-      F: '#2e8b57', CL: '#2e8b57', BR: '#8b2500', I: '#5f2d8a',
-      BACKGROUND: '#f7f6f2',
-    }
-  }
-};
+// ────────────────────────────────────────────────────
+// STATE
+// ────────────────────────────────────────────────────
+let suggestTimeout = null;
+let currentCID = null;
 
-function getDrawer(w, h) {
-  return new SmilesDrawer.Drawer({ ...SD_OPTIONS, width: w, height: h });
+// ────────────────────────────────────────────────────
+// PUBCHEM API HELPERS
+// ────────────────────────────────────────────────────
+const PUB = 'https://pubchem.ncbi.nlm.nih.gov/rest/pug';
+
+async function searchCID(query) {
+// Try name first
+const q = encodeURIComponent(query.trim());
+const url = `${PUB}/compound/name/${q}/cids/JSON`;
+const r = await fetch(url);
+if (r.ok) {
+const d = await r.json();
+return d.IdentifierList?.CID?.[0] ?? null;
+}
+// Try formula
+const url2 = `${PUB}/compound/formula/${q}/cids/JSON`;
+const r2 = await fetch(url2);
+if (r2.ok) {
+const d2 = await r2.json();
+return d2.IdentifierList?.CID?.[0] ?? null;
+}
+return null;
 }
 
-// ── STATE ─────────────────────────────────────────────
-let suggestTimeout = null;
-let currentSMILES = null;
+async function fetchProperties(cid) {
+// Une seule requête groupée — PubChem gère bien les propriétés connues en batch.
+// XLogP est exclu ici car absent pour certains composés (sels, ions) et ferait
+// planter toute la requête sur ces cas. Il est récupéré séparément après.
+const props = [
+'MolecularFormula', 'MolecularWeight', 'CanonicalSMILES', 'IsomericSMILES',
+'IUPACName', 'ExactMass', 'TPSA', 'HBondDonorCount',
+'HBondAcceptorCount', 'RotatableBondCount', 'HeavyAtomCount'
+].join(',');
+
+try {
+const r = await fetch(`${PUB}/compound/cid/${cid}/property/${props}/JSON`);
+if (!r.ok) return null;
+const d = await r.json();
+const base = d.PropertyTable?.Properties?.[0] ?? null;
+if (!base) return null;
+
+// XLogP — optionnel, absent pour les sels/ions
+try {
+const r2 = await fetch(`${PUB}/compound/cid/${cid}/property/XLogP/JSON`);
+if (r2.ok) {
+const d2 = await r2.json();
+const xlogp = d2.PropertyTable?.Properties?.[0]?.XLogP;
+if (xlogp != null) base.XLogP = xlogp;
+}
+} catch {}
+
+return base;
+} catch (e) {
+console.error('fetchProperties error:', e);
+return null;
+}
+}
+
+async function fetchSynonyms(cid) {
+const url = `${PUB}/compound/cid/${cid}/synonyms/JSON`;
+const r = await fetch(url);
+if (!r.ok) return [];
+const d = await r.json();
+return d.InformationList?.Information?.[0]?.Synonym ?? [];
+}
+
+async function fetchPhysicalData(cid) {
+// PUG View — seul endpoint qui expose les données expérimentales
+const url = `https://pubchem.ncbi.nlm.nih.gov/rest/pug_view/data/compound/${cid}/JSON`;
+try {
+const r = await fetch(url);
+if (!r.ok) return {};
+const d = await r.json();
+return extractPhysicalProps(d);
+} catch { return {}; }
+}
+
+function extractPhysicalProps(data) {
+const result = {};
+const sections = data?.Record?.Section ?? [];
+
+function walkSections(secs) {
+for (const sec of secs) {
+const heading = sec.TOCHeading ?? '';
+
+// Boiling point
+if (/boiling point/i.test(heading)) {
+const val = firstStringValue(sec);
+if (val) result.boilingPoint = val;
+}
+// Melting point
+if (/melting point/i.test(heading)) {
+const val = firstStringValue(sec);
+if (val) result.meltingPoint = val;
+}
+// Flash point
+if (/flash point/i.test(heading)) {
+const val = firstStringValue(sec);
+if (val) result.flashPoint = val;
+}
+// Density
+if (/^density$/i.test(heading)) {
+const val = firstStringValue(sec);
+if (val) result.density = val;
+}
+// Solubility
+if (/solubility/i.test(heading) && !result.solubility) {
+const val = firstStringValue(sec);
+if (val) result.solubility = val;
+}
+
+if (sec.Section) walkSections(sec.Section);
+}
+}
+
+walkSections(sections);
+return result;
+}
+
+function firstStringValue(sec) {
+const info = sec?.Information ?? [];
+for (const item of info) {
+const vals = item?.Value?.StringWithMarkup ?? [];
+if (vals.length > 0) return vals[0]?.String ?? null;
+}
+return null;
+}
+
+// ────────────────────────────────────────────────────
+// AUTOCOMPLETE
+// ────────────────────────────────────────────────────
+async function fetchSuggestions(query) {
+const q = encodeURIComponent(query.trim());
+const url = `https://pubchem.ncbi.nlm.nih.gov/rest/autocomplete/compound/${q}/json?limit=6`;
+try {
+const r = await fetch(url);
+if (!r.ok) return [];
+const d = await r.json();
+return d.dictionary_terms?.compound ?? [];
+} catch { return []; }
+}
+
+const searchInput = document.getElementById('searchInput');
+const suggestionsEl = document.getElementById('suggestions');
 let activeSugIdx = -1;
 let currentSuggestions = [];
 
-// ── CLAUDE API — seul backend autorisé dans la sandbox ─
-async function askClaude(userPrompt) {
-  const res = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      model: 'claude-sonnet-4-20250514',
-      max_tokens: 1000,
-      system: `Tu es une base de données chimique. Réponds UNIQUEMENT en JSON valide, sans markdown, sans backticks, sans texte autour.
-Format attendu :
-{
-  "found": true,
-  "name": "Aspirin",
-  "iupac": "2-acetyloxybenzoic acid",
-  "formula": "C9H8O4",
-  "smiles": "CC(=O)Oc1ccccc1C(=O)O",
-  "molarMass": "180.158",
-  "exactMass": "180.0423",
-  "boilingPoint": "140 °C (décompose)",
-  "meltingPoint": "135-136 °C",
-  "density": "1.40 g/cm³",
-  "solubility": "3 g/L (eau, 20°C)",
-  "flashPoint": null,
-  "logP": "1.19",
-  "tpsa": "63.60",
-  "hDonors": "1",
-  "hAcceptors": "4",
-  "rotatableBonds": "3",
-  "heavyAtoms": "13",
-  "pubchemCID": "2244"
-}
-Si la molécule est inconnue ou n'existe pas : { "found": false }
-Pour les valeurs inconnues, mets null. Le SMILES doit être valide et isomeric si possible.`,
-      messages: [{ role: 'user', content: userPrompt }]
-    })
-  });
-  if (!res.ok) throw new Error(`API ${res.status}`);
-  const data = await res.json();
-  const text = data.content?.find(b => b.type === 'text')?.text ?? '';
-  // Strip éventuel markdown
-  const clean = text.replace(/```json|```/g, '').trim();
-  return JSON.parse(clean);
-}
-
-async function askSuggestions(query) {
-  const res = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      model: 'claude-sonnet-4-20250514',
-      max_tokens: 200,
-      system: `Tu es un moteur d'autocomplétion chimique. Réponds UNIQUEMENT en JSON : {"suggestions":["nom1","nom2",...]}
-- 4 à 6 suggestions max, noms communs en anglais ou latin chimique
-- Inclure le nom tapé (corrigé si besoin) et des synonymes courants
-- Aucun texte hors du JSON`,
-      messages: [{ role: 'user', content: `Suggestions pour : "${query}"` }]
-    })
-  });
-  if (!res.ok) return [];
-  const data = await res.json();
-  const text = data.content?.find(b => b.type === 'text')?.text ?? '';
-  const clean = text.replace(/```json|```/g, '').trim();
-  const parsed = JSON.parse(clean);
-  return parsed.suggestions ?? [];
-}
-
-// ── AUTOCOMPLETE ──────────────────────────────────────
-const searchInput = document.getElementById('searchInput');
-const suggestionsEl = document.getElementById('suggestions');
-
 searchInput.addEventListener('input', () => {
-  clearTimeout(suggestTimeout);
-  const val = searchInput.value.trim();
-  if (val.length < 2) { hideSuggestions(); return; }
-  suggestTimeout = setTimeout(() => loadSuggestions(val), 350);
+clearTimeout(suggestTimeout);
+const val = searchInput.value.trim();
+if (val.length < 2) { hideSuggestions(); return; }
+suggestTimeout = setTimeout(() => loadSuggestions(val), 200);
 });
 
 searchInput.addEventListener('keydown', e => {
-  if (e.key === 'ArrowDown') {
-    activeSugIdx = Math.min(activeSugIdx + 1, currentSuggestions.length - 1);
-    highlightSuggestion(); e.preventDefault();
-  } else if (e.key === 'ArrowUp') {
-    activeSugIdx = Math.max(activeSugIdx - 1, -1);
-    highlightSuggestion(); e.preventDefault();
-  } else if (e.key === 'Enter') {
-    if (activeSugIdx >= 0 && currentSuggestions[activeSugIdx]) {
-      selectSuggestion(currentSuggestions[activeSugIdx]);
-    } else {
-      doSearch(searchInput.value.trim());
-    }
-    hideSuggestions();
-  } else if (e.key === 'Escape') {
-    hideSuggestions();
-  }
+if (e.key === 'ArrowDown') {
+activeSugIdx = Math.min(activeSugIdx + 1, currentSuggestions.length - 1);
+highlightSuggestion();
+e.preventDefault();
+} else if (e.key === 'ArrowUp') {
+activeSugIdx = Math.max(activeSugIdx - 1, -1);
+highlightSuggestion();
+e.preventDefault();
+} else if (e.key === 'Enter') {
+if (activeSugIdx >= 0 && currentSuggestions[activeSugIdx]) {
+selectSuggestion(currentSuggestions[activeSugIdx]);
+} else {
+doSearch(searchInput.value.trim());
+}
+hideSuggestions();
+} else if (e.key === 'Escape') {
+hideSuggestions();
+}
 });
 
 document.addEventListener('click', e => {
-  if (!e.target.closest('.search-wrap')) hideSuggestions();
+if (!e.target.closest('.search-wrap')) hideSuggestions();
 });
 
 async function loadSuggestions(query) {
-  try {
-    const terms = await askSuggestions(query);
-    currentSuggestions = terms;
-    activeSugIdx = -1;
-    if (!terms.length) { hideSuggestions(); return; }
+const terms = await fetchSuggestions(query);
+currentSuggestions = terms;
+activeSugIdx = -1;
 
-    suggestionsEl.innerHTML = '';
-    terms.forEach(term => {
-      const div = document.createElement('div');
-      div.className = 'suggestion-item';
-      div.textContent = term;
-      div.addEventListener('mousedown', e => {
-        e.preventDefault();
-        selectSuggestion(term);
-      });
-      suggestionsEl.appendChild(div);
-    });
-    suggestionsEl.classList.add('visible');
-  } catch { hideSuggestions(); }
+if (!terms.length) { hideSuggestions(); return; }
+
+suggestionsEl.innerHTML = '';
+terms.forEach((term, i) => {
+const div = document.createElement('div');
+div.className = 'suggestion-item';
+div.innerHTML = `<span class="sug-name">${term}</span>`;
+div.addEventListener('mousedown', e => {
+e.preventDefault();
+selectSuggestion(term);
+});
+suggestionsEl.appendChild(div);
+});
+
+suggestionsEl.classList.add('visible');
 }
 
 function highlightSuggestion() {
-  suggestionsEl.querySelectorAll('.suggestion-item').forEach((el, i) => {
-    el.classList.toggle('active', i === activeSugIdx);
-  });
-  if (activeSugIdx >= 0 && currentSuggestions[activeSugIdx]) {
-    searchInput.value = currentSuggestions[activeSugIdx];
-  }
+const items = suggestionsEl.querySelectorAll('.suggestion-item');
+items.forEach((el, i) => {
+el.style.background = i === activeSugIdx ? 'var(--line)' : '';
+});
+if (activeSugIdx >= 0 && currentSuggestions[activeSugIdx]) {
+searchInput.value = currentSuggestions[activeSugIdx];
+}
 }
 
 function selectSuggestion(term) {
-  searchInput.value = term;
-  hideSuggestions();
-  doSearch(term);
+searchInput.value = term;
+hideSuggestions();
+doSearch(term);
 }
 
 function hideSuggestions() {
-  suggestionsEl.classList.remove('visible');
+suggestionsEl.classList.remove('visible');
 }
 
-// ── QUICK SEARCH (pilules) ────────────────────────────
-function quickSearch(query, displayHint) {
-  searchInput.value = displayHint || query;
-  doSearch(query, displayHint);
+// ────────────────────────────────────────────────────
+// QUICK SEARCH (example pills)
+// ────────────────────────────────────────────────────
+function quickSearch(query, displayName) {
+searchInput.value = displayName || query;
+doSearch(query, displayName);
 }
 
-// ── MAIN SEARCH ───────────────────────────────────────
+// ────────────────────────────────────────────────────
+// MAIN SEARCH
+// ────────────────────────────────────────────────────
 async function doSearch(query, forceDisplayName) {
-  if (!query) return;
-  hideSuggestions();
-  showLoader(true);
-  hideCard();
-  hideError();
-  hideEmpty();
+if (!query) return;
+hideSuggestions();
+showLoader(true);
+hideCard();
+hideError();
+hideEmpty();
 
-  try {
-    const prompt = forceDisplayName
-      ? `Donne-moi les données chimiques complètes pour : "${query}" (aussi connu en français sous le nom "${forceDisplayName}")`
-      : `Donne-moi les données chimiques complètes pour : "${query}"`;
+let cid = null;
+let props = null;
+let physData = {};
+let synonyms = [];
 
-    const mol = await askClaude(prompt);
-
-    if (!mol.found) throw new Error('not found');
-
-    renderMolecule(mol, forceDisplayName);
-
-  } catch (err) {
-    showError();
-  } finally {
-    showLoader(false);
-  }
+try {
+// Résolution du nom — si c'est du texte (pas une formule brute),
+// on tente l'autocomplete pour obtenir le nom anglais canonique.
+// Ex : "caféine" → "caffeine", "benzène" → "benzene"
+let searchQuery = query;
+if (!/^[A-Z][a-z]?\d/.test(query) && !/^\[/.test(query)) {
+// Semble être un nom, pas une formule ni un SMILES
+try {
+const suggestions = await fetchSuggestions(query);
+if (suggestions.length > 0) searchQuery = suggestions[0];
+} catch {}
 }
 
-// ── RENDER ────────────────────────────────────────────
-function renderMolecule(mol, forceDisplayName) {
-  const card = document.getElementById('molCard');
+cid = await searchCID(searchQuery);
+// Fallback : essayer aussi le terme original si l'autocomplete n'a pas aidé
+if (!cid && searchQuery !== query) cid = await searchCID(query);
+if (!cid) throw new Error('not found');
 
-  document.getElementById('molName').textContent = forceDisplayName || mol.name;
-  document.getElementById('molFormula').textContent = mol.formula ?? '—';
-  document.getElementById('molIupac').textContent = mol.iupac ? `IUPAC: ${mol.iupac}` : '';
-  document.getElementById('smilesText').textContent = mol.smiles ?? '';
+currentCID = cid;
 
-  const cid = mol.pubchemCID;
-  document.getElementById('pubchemLink').href = cid
-    ? `https://pubchem.ncbi.nlm.nih.gov/compound/${cid}`
-    : `https://pubchem.ncbi.nlm.nih.gov/#query=${encodeURIComponent(mol.name)}`;
-
-  // Build props grid
-  const propsGrid = document.getElementById('propsGrid');
-  propsGrid.innerHTML = '';
-
-  const propItems = [
-    { label: 'Masse molaire',         value: mol.molarMass,      unit: 'g/mol', accent: true },
-    { label: 'Masse exacte',          value: mol.exactMass,      unit: 'Da' },
-    { label: 'Temp. de fusion',       value: mol.meltingPoint,   unit: '' },
-    { label: "Temp. d'ébullition",    value: mol.boilingPoint,   unit: '' },
-    { label: 'Point d\'éclair',       value: mol.flashPoint,     unit: '' },
-    { label: 'Densité',               value: mol.density,        unit: '' },
-    { label: 'LogP (lipophilicité)',  value: mol.logP,           unit: '' },
-    { label: 'Surface polaire',       value: mol.tpsa,           unit: 'Å²' },
-    { label: 'Donneurs H',            value: mol.hDonors,        unit: '' },
-    { label: 'Accepteurs H',          value: mol.hAcceptors,     unit: '' },
-    { label: 'Liaisons rotatives',    value: mol.rotatableBonds, unit: '' },
-    { label: 'Atomes lourds',         value: mol.heavyAtoms,     unit: '' },
-    { label: 'Solubilité',            value: mol.solubility,     unit: '' },
-  ].filter(p => p.value != null && p.value !== '' && p.value !== 'null');
-
-  propItems.forEach(item => {
-    const cell = document.createElement('div');
-    cell.className = 'prop-cell';
-    cell.innerHTML = `
-      <div class="prop-label">${item.label}</div>
-      <div class="prop-value${item.accent ? ' accent' : ''}">${item.value}${item.unit ? `<span class="prop-unit"> ${item.unit}</span>` : ''}</div>
-    `;
-    propsGrid.appendChild(cell);
-  });
-
-  // Afficher la carte AVANT drawStructure (pour que clientWidth soit valide)
-  card.style.display = 'block';
-  document.getElementById('searchSection').classList.add('has-result');
-
-  // Dessiner après un frame pour que le layout soit calculé
-  currentSMILES = mol.smiles;
-  requestAnimationFrame(() => {
-    drawStructure(mol.smiles, document.getElementById('canvasWrap'));
-    setTimeout(() => card.scrollIntoView({ behavior: 'smooth', block: 'start' }), 80);
-  });
+} catch(err) {
+showLoader(false);
+showError();
+return;
 }
 
-// ── STRUCTURE DRAWING ─────────────────────────────────
-function drawStructure(smiles, wrap) {
-  const canvas = document.getElementById('molCanvas');
-  const noStructEl = document.getElementById('noStructure');
+// À partir d'ici, la molécule est trouvée — les erreurs suivantes
+// ne doivent PAS déclencher "Molécule introuvable"
+try {
+[props, physData, synonyms] = await Promise.all([
+fetchProperties(cid),
+fetchPhysicalData(cid),
+fetchSynonyms(cid)
+]);
+} catch {}
 
-  if (!smiles) {
-    canvas.style.display = 'none';
-    noStructEl.style.display = 'flex';
-    return;
-  }
+showLoader(false);
 
-  canvas.style.display = 'block';
-  noStructEl.style.display = 'none';
-
-  const W = Math.max(wrap.clientWidth - 2, 300);
-  const H = Math.min(Math.round(W * 3 / 4), 420);
-  canvas.width = W;
-  canvas.height = H;
-
-  try {
-    const drawer = getDrawer(W, H);
-    SmilesDrawer.parse(smiles, tree => {
-      drawer.draw(tree, canvas, 'custom', false);
-    }, err => {
-      console.warn('SMILES parse:', err);
-      canvas.style.display = 'none';
-      noStructEl.style.display = 'flex';
-    });
-  } catch (e) {
-    console.warn('Draw error:', e);
-    canvas.style.display = 'none';
-    noStructEl.style.display = 'flex';
-  }
+if (!props) {
+showError();
+return;
 }
 
-// ── UI HELPERS ────────────────────────────────────────
-function showLoader(v) {
-  document.getElementById('loader').style.display = v ? 'block' : 'none';
-}
-function hideCard() {
-  document.getElementById('molCard').style.display = 'none';
-  document.getElementById('searchSection').classList.remove('has-result');
-}
-function showError() { document.getElementById('errorMsg').style.display = 'block'; }
-function hideError() { document.getElementById('errorMsg').style.display = 'none'; }
-function hideEmpty() { document.getElementById('emptyState').style.display = 'none'; }
+// forceDisplayName (nom FR) a priorité sur les synonymes PubChem
+const displayName = forceDisplayName
+|| synonyms.find(s => s.length < 30 && !/^\d/.test(s))
+|| synonyms[0]
+|| query;
 
-// ── RESIZE ────────────────────────────────────────────
-let resizeTimer;
-window.addEventListener('resize', () => {
-  clearTimeout(resizeTimer);
-  resizeTimer = setTimeout(() => {
-    if (currentSMILES) drawSt
+renderMolecule(cid, displayName, props, physData || {}, synonyms);
+}
+
+// ────────────────────────────────────────────────────
+// RENDER
+// ────────────────────────────────────────────────────
+function renderMolecule(cid, displayName, props, physData, synonyms) {
+const card = document.getElementById('molCard');
+const nameEl = document.getElementById('molName');
+const formulaEl = document.getElementById('molFormula');
+const iupacEl = document.getElementById('molIupac');
+const propsGrid = document.getElementById('propsGrid');
+const smilesText = document.getElementById('smilesText');
+const pubchemLink = document.getElementById('pubchemLink');
+const canvasWrap = document.getElementById('canvasWrap');
+
+// Name: prefer shorter common name
+const bestName = synonyms.find(s =>
+s.length < 24 &&
+!/^\d/.test(s) &&
+!/^[A-Z]{2,}-/.test(s)
+) || displayName;
+
+nameEl.textContent = bestName;
+formulaEl.textContent = props.MolecularFormula ?? '—';
+iupacEl.textContent = props.IUPACName ? `IUPAC: ${props.IUPACName}` : '';
+
+// SMILES
+const smiles = props.IsomericSMILES || props.CanonicalSMILES;
+smilesText.textContent = smiles ?? '';
+
+// PubChem link
+pubchemLink.href = `https://pubchem.ncbi.nlm.nih.gov/compound/${cid}`;
+
+// Properties grid
+const propItems = buildPropItems(props, physData);
+propsGrid.innerHTML = '';
+propItems.forEach(item => {
+const cell = document.createElement('div');
+cell.className = 'prop-cell';
+cell.innerHTML = `
+<div class="prop-label">${item.label}</div>
+<div class="prop-value${item.accent ? ' accent' : ''}">${item.value}<span class="prop-unit">${item.unit ? ' ' + item.unit : ''}</span></div>
+`;
+propsGrid.appendChild(cell);
+});
+
+// Show card
+card.style.display = 'block';
+document.getElementById('searchSection').classList.add('has-result');
+
+// Draw structure — image PNG PubChem
+drawStructure(smiles, cid);
+
+// Scroll to card smoothly
+setTimeout(() => {
+card.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}, 100);
+}
+
+function buildPropItems(props, physData) {
+const items = [];
+
+if (props.MolecularWeight)
+items.push({ label: 'Masse molaire', value: parseFloat(props.MolecularWeight).toFixed(3), unit: 'g/mol', accent: true });
+
+if (props.ExactMass)
+items.push({ label: 'Masse exacte', value: parseFloat(props.ExactMass).toFixed(4), unit: 'Da' });
+
+if (physData.meltingPoint)
+items.push({ label: 'Température de fusion', value: truncate(physData.meltingPoint, 22), unit: '' });
+
+if (physData.boilingPoint)
+items.push({ label: 'Température d\'ébullition', value: truncate(physData.boilingPoint, 22), unit: '' });
+
+if (physData.flashPoint)
+items.push({ label: 'Point d\'éclair', value: truncate(physData.flashPoint, 22), unit: '' });
+
+if (physData.density)
+items.push({ label: 'Densité', value: truncate(physData.density, 22), unit: '' });
+
+if (props.XLogP != null)
+items.push({ label: 'LogP (lipophilicité)', value: props.XLogP, unit: '' });
+
+if (props.TPSA != null)
+items.push({ label: 'Surface polaire', value: props.TPSA, unit: 'Å²' });
+
+if (props.HBondDonorCount != null)
+items.push({ label: 'Donneurs H', value: props.HBondDonorCount, 
